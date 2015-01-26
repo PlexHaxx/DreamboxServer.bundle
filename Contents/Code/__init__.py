@@ -32,7 +32,7 @@ def Start():
     ObjectContainer.title1 = Locale.LocalString('Title')
     DirectoryObject.thumb = R(ICON)
     #Save the inital channel to reset the box.
-    try:
+    """try:
         sRef, channel, provider, title, description, remaining = get_current_service(Prefs['host'], Prefs['port_web'])[0]
         Data.Save('sRef', sRef)
         Log('Loaded iniital channel from receiver')
@@ -42,49 +42,46 @@ def Start():
         Data.SaveObject('Started', False)
     except AttributeError as e:
         Log('Error in Start. Caught an attribute error - {}'.format(e.message))
-        Data.SaveObject('Started', False)
+        Data.SaveObject('Started', False)"""
 
 
-@handler('/video/dreambox', 'Dreambox', art=ART, thumb=ICON)
+@handler('/video/dreamboxserver', 'Dreambox Server', art=ART, thumb=ICON)
 def MainMenu():
     Log('Entered MainMenu function')
     items = []
     # See if we have any subfolders on the hdd
-    if Data.LoadObject('Started'):
-        try:
-            if(Prefs['folders']):
-                load_folders_from_receiver()
-            items.append(on_now())
-            items.append(DirectoryObject(key=Callback(Display_Bouquets),
-                                   title=Locale.LocalString('Live'),
-                                   thumb = R(LIVE),
-                                   tagline=Locale.LocalString('LiveTag')))
-            items.append(DirectoryObject(key=Callback(Display_RecordedTV),
-                                   title=Locale.LocalString('Recorded'),
-                                   thumb= R(RECORDED),
-                                   tagline='Watch recorded content on your Enigma 2 based satellite receiver'))
-            items = zap_menuitem(items)
-            items.append(DirectoryObject(key=Callback(add_tools), title='Tools'))
-        except (Exception, error)  as e:
-            Log('Error in HTTPLib2 MainMenu. Unable to get create on_now  - {}'.format(e.message))
-            # Need this entry in to make Home button work correctly
-            items.append(DirectoryObject(key=Callback(MainMenu),
-                                   title=Locale.LocalString('ConnectError')))
-            #items.append(DirectoryObject(key=Callback(add_tools), title='Tools'))
-        except AttributeError as e:
-            items.append(DirectoryObject(key=Callback(MainMenu),
-                                   title=Locale.LocalString('ConnectError')))
-            items.append(DirectoryObject(key=Callback(add_tools), title='Tools'))
+    #if Data.LoadObject('Started'):
+    #    #try:
+    #    #    if(Prefs['folders']):
+    #    #        load_folders_from_receiver()
+    #    #    items.append(on_now())
+    items.append(DirectoryObject(key=Callback(Display_Bouquets),
+                           title=Locale.LocalString('Live'),
+                           thumb = R(LIVE),
+                           tagline=Locale.LocalString('LiveTag')))
+    items.append(DirectoryObject(key=Callback(Display_RecordedTV),
+                           title=Locale.LocalString('Recorded'),
+                           thumb= R(RECORDED),
+                           tagline='Watch recorded content on your Enigma 2 based satellite receiver'))
+        #    items = zap_menuitem(items)
+        #except (Exception, error)  as e:
+        #    Log('Error in HTTPLib2 MainMenu. Unable to get create on_now  - {}'.format(e.message))
+        #    # Need this entry in to make Home button work correctly
+        #    items.append(DirectoryObject(key=Callback(MainMenu),
+        #                           title=Locale.LocalString('ConnectError')))
+        #except AttributeError as e:
+        #    items.append(DirectoryObject(key=Callback(MainMenu),
+#                                   title=Locale.LocalString('ConnectError')))
 
-        items.append(PrefsObject(title='Preferences', thumb=R('icon-prefs.png')))
-        items = check_empty_items(items)
-    else:
-        Log('Cannot start correctly.')
-        items.append(DirectoryObject(key=Callback(MainMenu),
-                                   title=Locale.LocalString('ConnectError')))
-        items.append(DirectoryObject(key=Callback(add_tools), title='Tools'))
-        items.append(PrefsObject(title='Preferences', thumb=R('icon-prefs.png')))
-        #may want to update prefs here, so update Started value
+        #items.append(PrefsObject(title='Preferences', thumb=R('icon-prefs.png')))
+        #items = check_empty_items(items)
+    #else:
+    #    Log('Cannot start correctly.')
+    #    items.append(DirectoryObject(key=Callback(MainMenu),
+    #                               title=Locale.LocalString('ConnectError')))
+    #    items.append(DirectoryObject(key=Callback(add_tools), title='Tools'))
+    #    items.append(PrefsObject(title='Preferences', thumb=R('icon-prefs.png')))
+    #    #may want to update prefs here, so update Started value
 
     oc = ObjectContainer(objects=items, view_group='List', no_cache=True)
     if len(items) > 3:
@@ -92,7 +89,7 @@ def MainMenu():
     return oc
 
 
-@route('/video/dreambox/thumb')
+@route('/video/dreamboxserver/thumb')
 def GetThumb(series):
     locale = Locale.DefaultLocale
     if locale == 'en-us':
@@ -108,12 +105,12 @@ def GetThumb(series):
 # Displays Bouquets when we have selected                        #
 # Live TV from the main menu                                     #
 ##################################################################
-@route("/video/dreambox/Display_Bouquets")
+@route("/video/dreamboxserver/Display_Bouquets")
 def Display_Bouquets():
     Log('Entered Display Bouquets function')
 
     items = []
-    bouquets = get_bouquets(Prefs['host'],Prefs['port_web'])
+    bouquets = JSON.ObjectFromString('127.0.0.1:9090/get_bouquets')
     for bouquet in bouquets:
             items.append(DirectoryObject(key = Callback(Display_Bouquet_Channels, sender = str(bouquet[7]), index=str(bouquet[6])),
                                     title = str(bouquet[7])))
@@ -126,7 +123,7 @@ def Display_Bouquets():
 # Displays Recorded TV when we have selected                     #
 # Recorded TV from the main menu                                 #
 ##################################################################
-@route("/video/dreambox/Display_RecordedTV")
+@route("/video/dreamboxserver/Display_RecordedTV")
 def Display_RecordedTV(display_root=False):
     Log('Entered DisplayMovies function')
 
@@ -147,7 +144,7 @@ def Display_RecordedTV(display_root=False):
         return oc
 
 
-@route("/video/dreambox/Display_FolderRecordings/{dummy}")
+@route("/video/dreamboxserver/Display_FolderRecordings/{dummy}")
 def Display_FolderRecordings(dummy, folder=None):
     Log('Entered Display_FolderRecordings function folder={}'.format(folder))
 
@@ -161,7 +158,7 @@ def Display_FolderRecordings(dummy, folder=None):
 
 
 
-@route("/video/dreambox/Display_Bouquet_Channels/{sender}")
+@route("/video/dreamboxserver/Display_Bouquet_Channels/{sender}")
 def Display_Bouquet_Channels(sender='', index=None):
     Log('Entered DisplayBouquetChannels function sender={} index={}'.format(sender, index))
     from enigma2 import get_channels_from_service
@@ -191,7 +188,7 @@ def Display_Bouquet_Channels(sender='', index=None):
     return oc
 
 
-@route("/video/dreambox/Display_Audio_Events/{sender}")
+@route("/video/dreamboxserver/Display_Audio_Events/{sender}")
 def Display_Audio_Events(sender, sRef, title=None, description=None, onnow=False):
     import time
     from enigma2 import get_audio_tracks, zap
@@ -214,7 +211,7 @@ def Display_Audio_Events(sender, sRef, title=None, description=None, onnow=False
     return oc
 
 
-@route("/video/dreambox/Display_Channel_Events/{sender}")
+@route("/video/dreamboxserver/Display_Channel_Events/{sender}")
 def Display_Channel_Events(sender, sRef, title=None):
     Log('Entered DisplayChannelEvents function sender={} sRef={} title={}'.format(sender, sRef, title))
     import time
@@ -256,7 +253,7 @@ def Display_Channel_Events(sender, sRef, title=None):
     return oc
 
 
-@route("/video/dreambox/AddTimer")
+@route("/video/dreamboxserver/AddTimer")
 def AddTimer(title='', name='', sRef='', eventid=0):
     from enigma2 import set_timer
 
@@ -268,7 +265,7 @@ def AddTimer(title='', name='', sRef='', eventid=0):
     return     ObjectContainer(objects=items, no_cache=True, replace_parent=True)
 
 
-@route("/video/dreambox/Display_Timer_Events/{sender}")
+@route("/video/dreamboxserver/Display_Timer_Events/{sender}")
 def Display_Timer_Events(sender=None):
     from enigma2 import get_timers
     import datetime
@@ -290,7 +287,7 @@ def Display_Timer_Events(sender=None):
     return oc
 
 
-@route("/video/dreambox/ConfirmDeletePopup")
+@route("/video/dreamboxserver/ConfirmDeletePopup")
 def ConfirmDeleteTimer(sRef=None, begin=0, end=0, servicename=None, name=None, sender=None, oc=None):
     oc = ObjectContainer (no_cache=True, no_history=True)
     oc.add(DirectoryObject(key=Callback(DeleteTimer, sRef=sRef, begin=begin, end=end, servicename=servicename, name=name),
@@ -299,7 +296,7 @@ def ConfirmDeleteTimer(sRef=None, begin=0, end=0, servicename=None, name=None, s
     return oc
 
 
-@route("/video/dreambox/DeleteTimer")
+@route("/video/dreamboxserver/DeleteTimer")
 def DeleteTimer(sRef='', begin=0, end=0, servicename='', name='', oc=None):
     Log('Entered delete timer function sRef={} begin={} end={} sn={} name={}'.format(sRef, begin, end, servicename, name))
     from enigma2 import delete_timer, get_timers
@@ -322,7 +319,7 @@ def DeleteTimer(sRef='', begin=0, end=0, servicename='', name='', oc=None):
     return oc
 
 
-@route("/video/dreambox/Display_Event")
+@route("/video/dreamboxserver/Display_Event")
 def Display_Event(sender='', channel='', description='', filename=None, subfolders=None, duration=0,
                   thumb=None, include_oc=False, rating_key=None,audioid=None, audio_description=None, includeExtras=0, includeRelated=0, includeRelatedCount=0):
     import re
@@ -395,7 +392,7 @@ def Display_Event(sender='', channel='', description='', filename=None, subfolde
     return video
 
 
-@route("video/dreambox/PlayVideo/{channel}")
+@route("video/dreamboxserver/PlayVideo/{channel}")
 def PlayVideo(channel, filename=None, folder=None, recorded=None, audioid=None, onnow=False):
     Log('Entering PlayVideo channel={} filename={} folder={} recorded={} audioid={}'.format(channel, filename, folder, recorded, audioid))
     import time
@@ -420,7 +417,7 @@ def PlayVideo(channel, filename=None, folder=None, recorded=None, audioid=None, 
     return Redirect('http://192.168.1.100:28090/audio1.mkv')
 
 
-@route("video/dreambox/ResetReceiver")
+@route("video/dreamboxserver/ResetReceiver")
 def ResetReceiver():
     Log('Entered ResetReceiver function')
     from enigma2 import zap
@@ -436,7 +433,7 @@ def ResetReceiver():
 
 
 
-@route('/video/dreambox/ResetPrefs')
+@route('/video/dreamboxserver/ResetPrefs')
 def ResetPrefs():
     items = []
     #Log(result)
@@ -459,7 +456,7 @@ def ResetPrefs():
     oc = ObjectContainer(objects=items, title2='Reset user preference', no_history=True)
     return oc
 
-@route('/video/dreambox/About')
+@route('/video/dreamboxserver/About')
 def About():
     items = []
     items.append(DirectoryObject(key=Callback(MainMenu),
@@ -471,7 +468,7 @@ def About():
     oc = ObjectContainer(objects=items, title2='About', no_history=True)
     return oc
 
-@route('/video/dreambox/SetPowerState')
+@route('/video/dreamboxserver/SetPowerState')
 def SetPowerState(state):
     from enigma2 import set_power_state
     Log('setting power state {}'.format(state))
@@ -509,7 +506,7 @@ def SetPowerState(state):
     oc = ObjectContainer(objects=items, title2=title2)
     return oc
 
-@route('/video/dreambox/ResetUserPrefs')
+@route('/video/dreamboxserver/ResetUserPrefs')
 def ResetUserPrefs():
     items = check_empty_items([])
     oc = ObjectContainer(objects=items, title2='Reset user preferences')
