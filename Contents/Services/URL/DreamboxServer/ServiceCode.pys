@@ -1,0 +1,37 @@
+
+
+
+
+
+def MetadataObjectForURL(url):
+
+    pass
+
+
+def MediaObjectsForURL(url):
+    #TODO Get a few packets and get the stream info etc. Media values go in here
+
+    return [
+        MediaObject(
+            video_codec='h264',
+            container='mkv',
+            audio_codec='aac',
+            parts=[PartObject(key=Callback(PlayVideoIndirect, url = '127.0.0.1:28090/audio1.live')), PartObject(key=Callback(PlayVideoIndirect, url = '127.0.0.1:28090/audio1.live'))]
+        )
+    ]
+
+
+
+# Called when the user presses the play button.
+# Callback function called from the part object
+
+def PlayVideoIndirect(url):
+
+
+    return url
+
+
+
+
+
+

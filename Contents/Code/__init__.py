@@ -1,3 +1,4 @@
+import uuid
 from httplib2 import ServerNotFoundError, HttpLib2Error
 from socket import error
 from metadata import get_thumb
@@ -109,15 +110,107 @@ def GetThumb(series):
 def Display_Bouquets():
     Log('Entered Display Bouquets function')
 
-    items = []
-    bouquets = JSON.ObjectFromString('127.0.0.1:9090/get_bouquets')
-    for bouquet in bouquets:
-            items.append(DirectoryObject(key = Callback(Display_Bouquet_Channels, sender = str(bouquet[7]), index=str(bouquet[6])),
-                                    title = str(bouquet[7])))
-    items.append(PrefsObject(title='Preferences', thumb=R('icon-prefs.png')))
+    x = lambda x: DirectoryObject(key = Callback(Display_Bouquet_Channels, sender = x[0], index=x[1]),
+                                    title = x[0])
+
+    bouquets = JSON.ObjectFromURL('http://127.0.0.1:9090/API/get_bouquets')
+    items = [x(name) for _, name in bouquets.iteritems()]
+
     oc = ObjectContainer(objects=items, view_group='List', no_cache=True, title2=Locale.LocalString('Live'))
     return oc
 
+@route("/video/dreamboxserver/Display_Bouquet_Channels/{sender}")
+def Display_Bouquet_Channels(sender='', index=None):
+    Log('Entered DisplayBouquetChannels function sender={} index={}'.format(sender, index))
+
+    x = lambda x, y: DirectoryObject(key=Callback(Display_Channel_Events, sender=x, index=y[1]),
+                                    title=x)
+    y = lambda x, y: DirectoryObject(key=Callback(ShowVideoScreen, sender=x, index=y[1]),
+                                title=x)
+
+    channels = JSON.ObjectFromURL('http://127.0.0.1:9090/API/get_channels', {'bouquet_id': index})
+    items = [y(name, sref_id) for name, sref_id in channels.iteritems() if '<na>' not in name]
+    oc = ObjectContainer(objects=items, title2=sender, view_group='List', no_cache=True)
+    return oc
+
+@route("/video/dreamboxserver/ShowVideoScreen/{sender}")
+def ShowVideoScreen(sender, index=None, title=None, useoc=False, rating_key=None):
+
+
+
+    video = MovieObject(
+        key = Callback(ShowVideoScreen,
+                       sender=sender,
+                       useoc=True,
+                       title=title,
+                       rating_key=index),
+        rating_key = index,
+        # This is what get displayedwhen the episode is displayed
+        title = title,
+        duration=1800,
+        items = [
+                MediaObject(
+                container = 'mkv',
+                video_codec = 'h264',
+                audio_channels = 2,
+                audio_codec = 'aac',
+                duration =  18000,
+                parts = [PartObject(key=Callback(PlayVideo, channel='title'))]
+            )
+        ]
+    )
+    if useoc :
+        oc = ObjectContainer()
+        oc.add(video)
+        return oc
+    return video
+
+
+@route("video/dreamboxserver/PlayVideo/{channel}")
+def PlayVideo(channel):
+
+
+    return Redirect('http://192.168.1.100:28090/audio1.mkv')
+
+@route("/video/dreamboxserver/Display_Channel_Events/{sender}")
+def Display_Channel_Events(sender, index, title=None, useoc=False):
+    import uuid
+    Log('Entered DisplayChannelEvents function sender={} index={} title={}'.format(sender, index, title))
+
+    now = lambda x: MovieObject( key=Callback(Display_Channel_Event,
+                                              sender=sender,
+                                              index=index,
+                                              title=x[0],
+                                              useoc=True
+                                              ),
+                                 rating_key=rating_key,
+                                 title = x[0],
+                                 items = [
+                                     MediaObject(
+                                        container = 'mkv',
+                                        video_codec = 'h264',
+                                        audio_channels = 2,
+                                        audio_codec = 'aac',
+                                        duration =  18000,
+                                        parts = [PartObject(key=Callback(PlayVideo, 'sdsd'))]
+                                     ) # end part object
+                                 ] # end items
+
+                            ) # end movie object
+
+    timer = lambda x: DirectoryObject(key=Callback(Display_Channel_Events, sender=x[0], index=x[1]),
+                                    title=x[0])
+
+
+
+
+    events = JSON.ObjectFromURL('http://127.0.0.1:9090/API/get_channel_now_next', {'channel_id': index})
+
+
+    items = [now(event) if event == events[0] else timer(event) for event in events]
+
+    oc = ObjectContainer(objects=items, title2=sender, view_group='List', no_cache=True)
+    return oc
 
 ##################################################################
 # Displays Recorded TV when we have selected                     #
@@ -158,34 +251,6 @@ def Display_FolderRecordings(dummy, folder=None):
 
 
 
-@route("/video/dreamboxserver/Display_Bouquet_Channels/{sender}")
-def Display_Bouquet_Channels(sender='', index=None):
-    Log('Entered DisplayBouquetChannels function sender={} index={}'.format(sender, index))
-    from enigma2 import get_channels_from_service
-
-    items = []
-    channels = get_channels_from_service(Prefs['host'], Prefs['port_web'], index, show_epg=True)
-
-    name = sender
-    Log(channels)
-    for id, start, duration, current_time, title, description, sRef, name in channels:
-        remaining = calculate_remaining(start, duration, current_time)
-        if remaining == 0:
-            remaining = None
-        if description:
-            name = '{}  - {}'.format(str(name), str(title))
-        else:
-            name = '{}'.format(str(name))
-        #gets rid of na
-        if name != '&lt;n/a>':
-            items.append(DirectoryObject(key = Callback(Display_Channel_Events, sender=name, sRef=str(sRef), title=title),
-                                    title = name,
-                                    duration = remaining,
-                                 thumb = picon(sRef)))
-    items = check_empty_items(items)
-    oc = ObjectContainer(objects=items, title2=sender, view_group='List', no_cache=True)
-    Log(len(oc))
-    return oc
 
 
 @route("/video/dreamboxserver/Display_Audio_Events/{sender}")
@@ -211,46 +276,7 @@ def Display_Audio_Events(sender, sRef, title=None, description=None, onnow=False
     return oc
 
 
-@route("/video/dreamboxserver/Display_Channel_Events/{sender}")
-def Display_Channel_Events(sender, sRef, title=None):
-    Log('Entered DisplayChannelEvents function sender={} sRef={} title={}'.format(sender, sRef, title))
-    import time
-    from enigma2 import zap, get_number_of_audio_tracks
 
-    items = []
-    for id, start, duration, current_time, title, description, sRef, name in get_events(title, sRef):
-        remaining = calculate_remaining(start, int(duration), current_time)
-
-        if int(start) < time.time():
-            result=None
-            if Prefs['zap'] :#and Prefs['audio'] :
-                zapped = zap(Prefs['host'],Prefs['port_web'], sRef=sRef)
-                Log('Zapped is {}'.format(zapped[0]))
-                if zapped[0]:
-                    result = check_and_display_audio(name=name, title=title, sRef=sRef, description=description, remaining=remaining)
-                else:
-                    Log('Not zapped for some reason')
-            else:
-                items.append(add_current_event(sRef, name, title, description,
-                                           remaining=remaining,
-                                           piconfile=picon(sRef)))
-            if title == 'N/A':
-                title = 'Unknown'
-            if result:
-                items.append(result)
-
-        #Add a future \ next event
-        elif start > 0:
-            pass
-            items.append(DirectoryObject(key=Callback(AddTimer,
-                                   title=title,
-                                   name=name, sRef=sRef, eventid=id),
-                                   title=title,
-                                   duration = remaining,
-                                   thumb=Callback(GetThumb, series=title)))
-    items = check_empty_items(items)
-    oc = ObjectContainer(objects=items, title2=sender, view_group='List', no_cache=True)
-    return oc
 
 
 @route("/video/dreamboxserver/AddTimer")
@@ -393,26 +419,8 @@ def Display_Event(sender='', channel='', description='', filename=None, subfolde
 
 
 @route("video/dreamboxserver/PlayVideo/{channel}")
-def PlayVideo(channel, filename=None, folder=None, recorded=None, audioid=None, onnow=False):
-    Log('Entering PlayVideo channel={} filename={} folder={} recorded={} audioid={}'.format(channel, filename, folder, recorded, audioid))
-    import time
-    from enigma2 import format_string, zap
-    if channel:
-        channel = channel.strip('.m3u8')
-    if Prefs['zap'] and not recorded:
-        Log('Changing Audio to {}'.format(audioid))
-        zapaudio(channel, audioid)
-    if recorded == 'False':
-        stream = 'http://{}:{}/{}'.format(Prefs['host'], Prefs['port_video'], channel)
-        Log('Stream to play {}'.format(stream))
-    else:
-        folder = folder.replace('\\', '/')  # required to make correct path for subfolders
-        Log('channel={} filename={}'.format(format_string(folder,clean_file=True), filename))
-        filename = format_string(filename, clean_file=True)
-        if filename[:3] != 'hdd':
-            filename= 'hdd/movie/{}/'.format(folder) + filename
-        stream = 'http://{}:{}/file?file=/{}'.format(Prefs['host'], Prefs['port_web'], filename)
-        Log('Recorded file  to play {}'.format(stream))
+def PlayVideo():
+
 
     return Redirect('http://192.168.1.100:28090/audio1.mkv')
 
@@ -571,21 +579,6 @@ def load_folders_from_receiver():
     except HttpLib2Error as he:
         Log('Error in Main Menu. Httplib2 error - {}'.format(he.message))
 
-
-##################################################################
-# Gets the events from the receiver for the selected channel     #
-##################################################################
-def get_events(title=None, sRef=None):
-    from enigma2 import get_nownext, get_fullepg, get_now
-    if Prefs['fullepg']:
-        events = get_fullepg(Prefs['host'], Prefs['port_web'], sRef)
-    else:
-        if title and title != 'N/A':
-            events = get_nownext(Prefs['host'], Prefs['port_web'], sRef)
-        else:
-            events = get_now(Prefs['host'], Prefs['port_web'], sRef)
-            Log('Get now event {}'.format(events))
-    return events
 
 
 
